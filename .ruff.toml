@@ -1,0 +1,42 @@
+# The contents of this file is based on https://github.com/home-assistant/core/blob/dev/pyproject.toml
+
+target-version = "py313"
+
+
+[lint]
+select = [
+    "ALL",
+]
+
+ignore = [
+    "ANN401", # Dynamically typed expressions (typing.Any) are disallowed
+    "D203", # no-blank-line-before-class (incompatible with formatter)
+    "D212", # multi-line-summary-first-line (incompatible with formatter)
+    "COM812", # incompatible with formatter
+    "ISC001", # incompatible with formatter
+]
+
+[lint.per-file-ignores]
+"tests/**" = [
+    "S101",     # assert is expected in tests
+    "SLF001",   # private member access is expected in tests
+    "D100", "D101", "D102", "D103", "D104",  # docstrings not required in tests
+    "ANN",      # type annotations not required in tests
+    "TC001", "TC002", "TC003",  # TYPE_CHECKING moves not required in tests
+    "PLR2004",  # magic values are fine in test assertions
+    "ARG001", "ARG002",  # unused args (fixtures) are fine
+    "RET504",   # unnecessary assignment before return (clarity in tests)
+]
+"scripts/**" = [
+    "T201",     # print is fine in scripts
+    "S603", "S607",  # subprocess with PATH-resolved executables (e.g. `git`) is fine in dev scripts
+]
+
+[lint.flake8-pytest-style]
+fixture-parentheses = false
+
+[lint.pyupgrade]
+keep-runtime-typing = true
+
+[lint.mccabe]
+max-complexity = 25

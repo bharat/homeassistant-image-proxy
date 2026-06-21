@@ -1,0 +1,9 @@
+colorlog==6.10.1
+homeassistant==2026.5.2
+home-assistant-frontend==20260527.5
+pytest==9.0.3
+pytest-homeassistant-custom-component==0.13.331
+pytest-timeout==2.4.0
+pytest-xdist==3.8.0
+ruff==0.15.15
+pre_commit==4.6.0

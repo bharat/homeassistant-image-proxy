@@ -1,0 +1,11 @@
+{
+  "domain": "image_proxy",
+  "name": "Image Proxy",
+  "codeowners": ["@bharat"],
+  "config_flow": true,
+  "dependencies": ["http"],
+  "documentation": "https://github.com/bharat/homeassistant-image-proxy",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/bharat/homeassistant-image-proxy/issues",
+  "version": "0.0.0"
+}

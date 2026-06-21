@@ -1,0 +1,14 @@
+{
+  "title": "Image Proxy",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Image Proxy",
+        "description": "Set up the Image Proxy integration."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Already configured. Only a single instance is allowed."
+    }
+  }
+}

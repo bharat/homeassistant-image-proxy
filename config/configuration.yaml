@@ -1,0 +1,17 @@
+# Minimal Home Assistant dev config for the Image Proxy integration.
+#
+# We intentionally avoid `default_config:` here. It pulls in a large set of
+# integrations (cloud, zeroconf, ssdp, usb, bluetooth, and more) that slow down
+# startup and add noise that is irrelevant to developing this integration. We
+# load only the handful of components needed to exercise the config flow and the
+# HTTP/WebSocket surface this integration depends on.
+
+homeassistant:
+  debug: true
+frontend:
+config:
+my:
+logger:
+  default: info
+  logs:
+    custom_components.image_proxy: debug

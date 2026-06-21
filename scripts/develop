@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Start a Home Assistant development environment for the Image Proxy integration.
+#
+# Usage:
+#   ./scripts/develop
+#
+# Runs Home Assistant in the foreground. HA is available at http://localhost:8123
+# and stops on Ctrl+C.
+
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+SCRIPT_DIR="$(pwd)"
+
+export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH:-}"
+
+echo "=== Image Proxy Development Server ==="
+echo "Config:      ${SCRIPT_DIR}/config"
+echo "Integration: custom_components/image_proxy"
+echo "URL:         http://localhost:8123"
+echo ""
+
+exec hass --config "${SCRIPT_DIR}/config" --debug

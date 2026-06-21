@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "mode": "full",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "labels": ["dependencies"],
+  "minimumReleaseAge": "14 days",
+  "enabledManagers": ["pip_requirements", "github-actions", "devcontainer"],
+  "packageRules": [
+    {
+      "matchManagers": ["pip_requirements"],
+      "groupName": "python dependencies"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    },
+    {
+      "matchManagers": ["devcontainer"],
+      "groupName": "devcontainer"
+    },
+    {
+      "matchDepNames": ["homeassistant"],
+      "enabled": false,
+      "description": "homeassistant is upgraded in lockstep with pytest-homeassistant-custom-component (see AGENTS.md fleet policy). Let helper bumps drive the HA upgrade rather than bumping homeassistant directly."
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true,
+      "platformAutomerge": true
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["home-assistant/actions"],
+      "minimumReleaseAge": "7 days",
+      "automerge": true,
+      "platformAutomerge": true,
+      "description": "home-assistant/actions is a first-party action tracked at @master (no stable release tag), so the default 14-day aging never completes (master commits more often than that) and leaves a perpetually blocked digest PR. Apply a shorter 7-day community-vetting buffer here so digest bumps adopt automatically and stay roughly current, while still not pulling a brand-new commit. PyPI packages and tag-pinned actions keep the default 14-day aging."
+    }
+  ]
+}
