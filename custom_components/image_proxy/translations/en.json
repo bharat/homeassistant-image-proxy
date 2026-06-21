@@ -8,7 +8,26 @@
       }
     },
     "abort": {
-      "single_instance_allowed": "Already configured. Only a single instance is allowed."
+      "already_configured": "Already configured. Only a single instance is allowed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Image Proxy options",
+        "description": "Comma-separated lists. Keep this integration on a trusted LAN or tailnet only.",
+        "data": {
+          "allowed_cidrs": "Allowed client CIDRs",
+          "sonos_ips": "Sonos coordinator IPs (allowed as fetch targets)",
+          "host_allowlist": "Upstream host allowlist (empty allows any public host)",
+          "trusted_proxies": "Trusted reverse proxies",
+          "max_cache_mb": "Maximum cache size (MB)"
+        }
+      }
+    },
+    "error": {
+      "invalid_cidr": "One of the CIDRs is not a valid network or address.",
+      "invalid_ip": "One of the IP addresses is not valid."
     }
   }
 }

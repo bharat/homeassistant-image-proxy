@@ -1,6 +1,6 @@
 # AGENTS.md, Image Proxy HA Integration
 
-This is the canonical agent guide for `bharat/homeassistant-image-proxy`. New Claude/Codex/Cursor sessions should read this before making changes. Pair it with `ARCHITECTURE.md` for the planned data flow.
+This is the canonical agent guide for `bharat/homeassistant-image-proxy`. New Claude/Codex/Cursor sessions should read this before making changes. Pair it with `ARCHITECTURE.md` for the implemented data flow.
 
 ## What this is
 
@@ -11,16 +11,21 @@ A Home Assistant custom integration that provides a server-side image cache and 
 ```
 .
 ├── AGENTS.md                   # This guide
-├── ARCHITECTURE.md             # Planned data flow (Phase 1), read for design intent
+├── ARCHITECTURE.md             # Implemented data flow (Phase 1), read for design intent
 ├── CONTRIBUTING.md             # Standard fork/PR flow
 ├── README.md                   # User-facing install + status
 │
 ├── custom_components/image_proxy/
-│   ├── __init__.py             # async_setup_entry / async_unload_entry (no platforms yet)
+│   ├── __init__.py             # async_setup_entry: wires store + view + WS commands
 │   ├── manifest.json           # version is "0.0.0" sentinel, see Releases section
-│   ├── config_flow.py          # Single-step user flow + empty options-flow stub
-│   ├── const.py                # DOMAIN
-│   ├── strings.json            # Config-flow strings
+│   ├── config_flow.py          # User flow + options flow (allowlists, proxies, cap)
+│   ├── options.py              # Option parsing/validation shared by flow + setup
+│   ├── store.py                # Blob store + Store-backed index, LRU eviction
+│   ├── fetch.py                # SSRF-guarded fetch-through (security-critical part)
+│   ├── view.py                 # img HTTP view + client_ip_allowed() pure function
+│   ├── websocket.py            # image_proxy/register + image_proxy/stats commands
+│   ├── const.py                # DOMAIN, CONF_* keys, defaults, timeouts
+│   ├── strings.json            # Config + options flow strings
 │   └── translations/en.json    # English translations
 │
 ├── config/
@@ -29,6 +34,7 @@ A Home Assistant custom integration that provides a server-side image cache and 
 ├── scripts/
 │   ├── setup                   # Container post-create: pip + pre-commit + claude CLI
 │   ├── develop                 # Foreground HA launcher (hass --config config --debug)
+│   ├── demo / demo.py          # End-to-end demo: register a key, then fetch the img URL
 │   └── lint                    # ruff check --fix && ruff format --check
 │
 ├── .ruff.toml                  # select = ["ALL"] with a handful disabled; max-complexity 25
@@ -60,24 +66,26 @@ pre-commit run --all-files                          # Same hooks CI runs
 - **Manifest version is `"0.0.0"` on purpose.** It is a sentinel. HACS reads the released version from git tags, not `manifest.json`, so do not bump it manually. See the Releases section.
 - **Tags use CalVer** (`v<YYYY>.<M>.<DD>`), matching the fleet-wide HA-integration convention.
 - **Ruff runs with `select = ["ALL"]`** (a handful disabled in `.ruff.toml`). New code is expected to pass cleanly; keep full type hints and docstrings.
-- **No platforms are registered yet.** `__init__.py` only sets up and tears down a config entry. Phase 1 adds the HTTP view and the WebSocket command.
+- **The img view and WS commands are process-wide.** `__init__.py` registers the view once and reads the per-entry runtime dict (`hass.data[DOMAIN][entry_id]`) at request time. An options update triggers an entry reload so new config takes effect.
+- **Keys are computed by the card, not the server.** The server is key-scheme agnostic: it stores `key -> src` and bytes by key. Blob filenames are `sha256(key)` so any key string is filesystem-safe.
 
 ## Status
 
-Phase 0, scaffold only. The integration loads cleanly (config entry set up and unloaded), but the actual image cache is not implemented yet. There is no img endpoint, no register WebSocket command, no blob store, and no SSRF guard in the code today. All of that is Phase 1. Do not document or advertise those features as working; they are planned.
+Phase 1 implemented (art cache). The integration serves cached blobs over `GET /api/image_proxy/img/<key>` (client-IP allowlisted), fetches art through under an SSRF guard on a miss, exposes `image_proxy/register` and `image_proxy/stats` WebSocket commands, persists a `Store`-backed index alongside on-disk blobs, and enforces an LRU-evicted size cap. The full pytest suite covers the store, the SSRF guard, the IP gate, the endpoint, and the WS commands. A key-to-metadata KV API is the remaining Phase 2 work (see below).
 
-## Planned architecture
+## Implemented architecture (Phase 1)
 
-The locked design for Phase 1 (not yet built):
+- **`GET /api/image_proxy/img/<key>`** (`view.py`): serves a cached blob by key. Token-less, guarded by a client-IP allowlist. The IP decision lives in the pure, unit-tested `client_ip_allowed()`. On a miss for a known key, it fetches through; unknown key is `404`, fetch failure is `502`, blocked client is `403`.
+- **`image_proxy/register`** (`websocket.py`): records `key -> src` mappings and warms the cache with bounded-concurrency background fetches. `image_proxy/stats` returns entry count + total bytes.
+- **Blob store** (`store.py`): bytes under `config/.storage/image_proxy/blobs/<sha256(key)>`, plus a `Store`-backed in-memory index (`{blob, content_type, src, size, etag, ts, last_access}`) under an `asyncio.Lock`, with LRU eviction past the size cap.
+- **SSRF guard** (`fetch.py`): scheme + host-allowlist + resolved-IP checks, per-hop revalidation on redirects, `image/` content-type enforcement, and a body-size cap. Residual DNS-rebinding TOCTOU window is documented there as a LAN-only limitation.
+- **Config-flow options** (`config_flow.py`, `options.py`): client CIDRs, Sonos coordinator IPs, upstream host allowlist, trusted proxies, and the cache cap (MB). List fields accept comma-separated text and are validated with `ipaddress`.
 
-- **`GET /api/image_proxy/img/<key>`**, an HTTP view that serves a cached blob by key. It is unauthenticated in the HA-token sense (media cards cannot easily attach a token), but it is guarded by a client-IP allowlist (configured CIDRs). On a cache miss for a known key, it fetches through from the source URL associated with that key.
-- **`register` WebSocket command**, which warms the cache: it maps a cache key to a source URL (`key -> src`) ahead of time so the img endpoint can serve or fetch-through.
-- **Blob store** under `config/.storage/image_proxy/blobs`, with a `Store`-backed index mapping keys to source URLs and blob metadata.
-- **SSRF guard** on fetch-through: the source host must be on the configured whitelist, and resolved addresses must not be private or link-local, so the proxy cannot be used to reach internal services.
-- **Cache key** shape: `sc:<track_id>` plus `h:<sha1(src)>`, so a key is stable for a given track and source.
-- **Config-flow options** (Phase 1): client CIDRs for the IP allowlist, Sonos coordinator IPs (a common source of media art), and a blob size cap.
+See `ARCHITECTURE.md` for the data-flow diagrams.
 
-See `ARCHITECTURE.md` for the data-flow diagram.
+## Phase 2 (not built)
+
+A key-to-metadata KV API (structured per-key metadata beyond the source URL) is the planned next phase and is intentionally out of scope for the Phase 1 art cache.
 
 ## Releases
 
