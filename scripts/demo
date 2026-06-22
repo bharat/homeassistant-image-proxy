@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Run the Image Proxy end-to-end demo (see scripts/demo.py for details).
+#
+# Usage:
+#   HA_TOKEN="<long-lived token>" ./scripts/demo
+#
+# Optional environment: HA_URL, DEMO_SRC, DEMO_KEY.
+
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+exec python3 scripts/demo.py
