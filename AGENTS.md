@@ -22,6 +22,7 @@ A Home Assistant custom integration that provides a server-side image cache and 
 │   ├── options.py              # Option parsing/validation shared by flow + setup
 │   ├── store.py                # Blob store + Store-backed index, LRU eviction
 │   ├── fetch.py                # SSRF-guarded fetch-through (security-critical part)
+│   ├── resolve.py              # Indirect-source resolution (oEmbed artwork lookup)
 │   ├── view.py                 # img HTTP view + client_ip_allowed() pure function
 │   ├── websocket.py            # image_proxy/register + image_proxy/stats commands
 │   ├── const.py                # DOMAIN, CONF_* keys, defaults, timeouts
@@ -78,6 +79,7 @@ Phase 1 implemented (art cache). The integration serves cached blobs over `GET /
 - **`GET /api/image_proxy/img/<key>`** (`view.py`): serves a cached blob by key. Token-less, guarded by a client-IP allowlist. The IP decision lives in the pure, unit-tested `client_ip_allowed()`. On a miss for a known key, it fetches through; unknown key is `404`, fetch failure is `502`, blocked client is `403`.
 - **`image_proxy/register`** (`websocket.py`): records `key -> src` mappings and warms the cache with bounded-concurrency background fetches. `image_proxy/stats` returns entry count + total bytes.
 - **Blob store** (`store.py`): bytes under `config/.storage/image_proxy/blobs/<sha256(key)>`, plus a `Store`-backed in-memory index (`{blob, content_type, src, size, etag, ts, last_access}`) under an `asyncio.Lock`, with LRU eviction past the size cap.
+- **Source resolution** (`resolve.py`): rewrites media-browser thumbnail URLs that point back at Home Assistant into direct artwork URLs via the services' public oEmbed endpoints. Best-effort, with pass-through on anything unrecognised. See `ARCHITECTURE.md`.
 - **SSRF guard** (`fetch.py`): scheme + host-allowlist + resolved-IP checks, per-hop revalidation on redirects, `image/` content-type enforcement, and a body-size cap. Residual DNS-rebinding TOCTOU window is documented there as a LAN-only limitation.
 - **Config-flow options** (`config_flow.py`, `options.py`): client CIDRs, Sonos coordinator IPs, upstream host allowlist, trusted proxies, and the cache cap (MB). List fields accept comma-separated text and are validated with `ipaddress`.
 

@@ -47,5 +47,9 @@ FETCH_TIMEOUT_S = 10
 FETCH_MAX_BYTES = 15 * 1024 * 1024
 FETCH_MAX_REDIRECTS = 3
 
+# Cap on an oEmbed metadata response body. Real payloads are a few hundred
+# bytes; the cap only bounds a hostile or broken provider.
+OEMBED_MAX_BYTES = 64 * 1024
+
 # Bounded concurrency for cache-warming fetches.
 WARM_CONCURRENCY = 4
