@@ -17,6 +17,7 @@ from homeassistant.components import websocket_api
 
 from .const import DOMAIN, WARM_CONCURRENCY
 from .fetch import FetchError, fetch_image
+from .resolve import async_resolve_src
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -101,16 +102,18 @@ async def _warm(
         async with sem:
             if store.has_blob(key):
                 return
+            fetch_src = await async_resolve_src(hass, src)
             try:
                 content_type, data = await fetch_image(
                     hass,
-                    src,
+                    fetch_src,
                     allow_private_hosts=runtime["sonos_ips"],
                     host_allowlist=runtime["host_allowlist"],
                 )
             except FetchError as err:
-                _LOGGER.debug("Warm fetch failed for %s (%s): %s", key, src, err)
+                _LOGGER.debug("Warm fetch failed for %s (%s): %s", key, fetch_src, err)
                 return
+            # Store the original src so the entry stays re-resolvable.
             await store.async_store_blob(key, src, content_type, data)
 
     await asyncio.gather(*(_one(key, src) for key, src in items))

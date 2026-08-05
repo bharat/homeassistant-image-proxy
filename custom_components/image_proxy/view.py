@@ -10,6 +10,7 @@ SSRF guard, stores the result, and serves it.
 from __future__ import annotations
 
 import ipaddress
+import logging
 from typing import TYPE_CHECKING
 
 from aiohttp import web
@@ -17,6 +18,7 @@ from homeassistant.components.http import HomeAssistantView
 
 from .const import DOMAIN
 from .fetch import FetchError, fetch_image
+from .resolve import async_resolve_src
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -24,6 +26,8 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
     from .store import ImageStore
+
+_LOGGER = logging.getLogger(__name__)
 
 _IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 
@@ -152,16 +156,20 @@ class ImageProxyView(HomeAssistantView):
         src: str,
     ) -> web.StreamResponse:
         """Fetch a known key's source through the SSRF guard, store, and serve."""
+        fetch_src = await async_resolve_src(self._hass, src)
         try:
             content_type, data = await fetch_image(
                 self._hass,
-                src,
+                fetch_src,
                 allow_private_hosts=runtime["sonos_ips"],
                 host_allowlist=runtime["host_allowlist"],
             )
-        except FetchError:
+        except FetchError as err:
+            _LOGGER.warning("Fetch failed for %s (%s): %s", key, fetch_src, err)
             return web.Response(status=502, text="Upstream fetch failed")
 
+        # Store the original src, not the resolved one: it is the stable
+        # identity of the artwork and stays re-resolvable if the blob is evicted.
         stored = await store.async_store_blob(key, src, content_type, data)
         etag = f'"{stored["etag"]}"'
         return web.Response(

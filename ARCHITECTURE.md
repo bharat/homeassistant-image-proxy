@@ -10,6 +10,7 @@ Media cards (album art for now-playing tiles) often reference image URLs that ar
 
 - **HTTP view** (`view.py`): `GET /api/image_proxy/img/{key}`, token-less but gated by a client-IP allowlist. Serves cached blobs, or fetches through on a miss for a known key.
 - **WebSocket commands** (`websocket.py`): `image_proxy/register` (map keys to sources and warm the cache) and `image_proxy/stats` (entry count and total bytes).
+- **Source resolution** (`resolve.py`): turns an indirect source (a media-browser thumbnail that points back at Home Assistant rather than at the artwork) into a directly fetchable URL. Best-effort; unrecognised sources pass through unchanged.
 - **Fetch-through with SSRF guard** (`fetch.py`): resolves and validates the source host before fetching, follows redirects with per-hop revalidation, and caps the body size.
 - **Blob store + index** (`store.py`): bytes on disk plus a `Store`-backed in-memory index, with LRU eviction.
 - **Options** (`config_flow.py`, `options.py`): allowlists, trusted proxies, and the cache cap.
@@ -41,12 +42,24 @@ client ──GET /api/image_proxy/img/<key>──▶ HTTP view (token-less)
                                   ┌─────────────┼──────────────────────────┐
                               blob present              key known, no blob            key unknown
                                   │                            │                          │
-                         If-None-Match match? ──▶ 304   SSRF guard on src host          404
+                         If-None-Match match? ──▶ 304    resolve src (best-effort)        404
                                   │ else                       │
-                         serve bytes + ETag +          fetch-through(GET src)
+                         serve bytes + ETag +          SSRF guard + fetch-through
                          immutable Cache-Control               │ ok            │ fail
                          (touch last_access)            store + serve         502
 ```
+
+### Source resolution
+
+Some media browsers publish a thumbnail URL that points back at Home Assistant's own `media_player_proxy` endpoint instead of at the artwork. For streaming-service *tracks* those URLs are unusable as a cache source: the Sonos integration only serves browse images for albums and artists, so a track URL returns an empty 404 (fixed upstream by home-assistant/core#177510), and the embedded `token` is regenerated on every restart, so a stored URL eventually 403s.
+
+A track's artwork URI cannot be rebuilt from its content id, but the *service* track id is embedded in it. `resolve.py` recovers that id and asks the service's public, unauthenticated oEmbed endpoint for the artwork, rather than round-tripping Home Assistant's own HTTP endpoint. Spotify and SoundCloud are recognised today.
+
+The content id is percent-encoded twice and wrapped in one of several `x-sonos*` container schemes, so resolution decodes until stable and then matches the service id itself. The captured ids are alphanumeric, which is what makes them safe to interpolate into an oEmbed URL.
+
+Resolution is best-effort in both directions: an unrecognised source, an unreachable provider, or a malformed response all fall back to the original source, so behaviour is never worse than not resolving. A resolved URL comes from a third party and still goes through the full SSRF guard.
+
+The index keeps the *original* source, not the resolved one. The original is the stable identity of the artwork and stays re-resolvable if the blob is later evicted.
 
 ### Client-IP gate
 
