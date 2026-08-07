@@ -51,7 +51,9 @@ client ──GET /api/image_proxy/img/<key>──▶ HTTP view (token-less)
 
 ### Source resolution
 
-Some media browsers publish a thumbnail URL that points back at Home Assistant's own `media_player_proxy` endpoint instead of at the artwork. For streaming-service *tracks* those URLs are unusable as a cache source: the Sonos integration only serves browse images for albums and artists, so a track URL returns an empty 404 (fixed upstream by home-assistant/core#177510), and the embedded `token` is regenerated on every restart, so a stored URL eventually 403s.
+Some media browsers publish a thumbnail URL that points back at Home Assistant's own `media_player_proxy` endpoint instead of at the artwork. For streaming-service *tracks* those URLs are unusable as a cache source: the Sonos integration only serves browse images for albums and artists, so a track URL returns an empty 404, and the embedded `token` is regenerated on every restart, so a stored URL eventually 403s.
+
+home-assistant/core#173330 addresses the 404, but not in a way that makes this redundant. It captures the speaker's advertised art URI at browse time into a per-speaker dict that is bounded (4096 entries, FIFO) and never persisted, so it only answers for tracks browsed in the current process. A source recorded in this index outlives that cache, so after a restart a track nobody has re-browsed still resolves to nothing.
 
 A track's artwork URI cannot be rebuilt from its content id, but the *service* track id is embedded in it. `resolve.py` recovers that id and asks the service's public, unauthenticated oEmbed endpoint for the artwork, rather than round-tripping Home Assistant's own HTTP endpoint. Spotify and SoundCloud are recognised today.
 

@@ -6,7 +6,11 @@ Assistant's own ``media_player_proxy`` endpoint rather than at the artwork. For
 streaming-service *tracks* those URLs are not usable as a cache source:
 
 * The Sonos integration only serves browse images for albums and artists, so a
-  track URL returns an empty 404 (fixed upstream by home-assistant/core#177510).
+  track URL returns an empty 404. home-assistant/core#173330 addresses this, but
+  only for tracks browsed in the current process: it caches the art URI at browse
+  time in a per-speaker dict that is bounded and never persisted. A source stored
+  here outlives that cache, so a track not re-browsed since the last restart still
+  resolves to nothing.
 * They embed a ``token`` taken from the media player's ``access_token``, which
   is regenerated on every restart, so a stored URL later 403s.
 
