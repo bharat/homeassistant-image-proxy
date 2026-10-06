@@ -46,8 +46,11 @@ async def test_register_records_and_warms(
     assert msg["success"]
     assert msg["result"] == {"registered": 1, "warming": 1}
 
-    # Let the background warm task finish, then the blob is cached.
-    await hass.async_block_till_done()
+    # Let the background warm task finish, then the blob is cached. The warm
+    # runs via hass.async_create_background_task, which plain
+    # async_block_till_done() does not wait for; without the flag this
+    # assertion races the fetch and fails most runs.
+    await hass.async_block_till_done(wait_background_tasks=True)
     store = hass.data[DOMAIN][entry.entry_id]["store"]
     assert store.has_blob("k1")
     assert await store.async_read_blob("k1") == PNG
