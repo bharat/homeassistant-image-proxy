@@ -2,7 +2,7 @@ colorlog==6.12.0
 homeassistant==2026.9.3
 home-assistant-frontend==20260826.7
 pytest==9.0.3
-pytest-homeassistant-custom-component==0.13.366
+pytest-homeassistant-custom-component==0.13.367
 pytest-timeout==2.4.0
 pytest-xdist==3.8.0
 ruff==0.16.9
