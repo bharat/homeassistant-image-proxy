@@ -6,5 +6,3 @@ cd "$(dirname "$0")/.."
 
 python3 -m pip install --upgrade pip -r requirements.txt
 pre-commit install
-
-curl -fsSL https://claude.ai/install.sh | bash
