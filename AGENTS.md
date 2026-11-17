@@ -95,6 +95,8 @@ Tags use **CalVer**: `v<YYYY>.<M>.<DD>` (e.g. `v2026.6.21`). Release titles use 
 
 The release workflow (`.github/workflows/release.yml`) auto-creates the GitHub release on `v*` tag push. HACS reads the version from the git tag, not `manifest.json`, so do not bump `manifest.json`'s `"0.0.0"`.
 
+Releases are immutable. The workflow runs only when a `v*` tag is pushed (there is no manual trigger), and it refuses any tag that is not a CalVer version or whose commit is not already on `main`. It attaches no files, since HACS installs from the tagged source, and it never replaces anything on an existing release. If a release is bad, do not move or re-push the tag: fix the problem on `main` and push a new tag.
+
 Build the GitHub release body in three parts:
 
 1. **Lead paragraph** (no header): 1 to 3 sentences of plain-English summary of what this release means for users.
